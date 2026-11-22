@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Task Routing Operator</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 20px; background: #f8fafc; color: #0f172a; }
+    .layout { display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; align-items: start; }
+    .card { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 14px; margin-bottom: 14px; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; background: #e2e8f0; }
+    .prio-high { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+    .prio-normal { background: #e0f2fe; color: #075985; }
+    .prio-low { background: #f1f5f9; color: #475569; }
+    .warn-normal { margin-top: 8px; padding: 8px; border-radius: 6px; background: #fef9c3; color: #854d0e; font-size: 13px; }
+    .warn-high { margin-top: 8px; padding: 10px 12px; border-radius: 6px; background: #dc2626; color: #ffffff; font-weight: 700; font-size: 14px; }
+    .conflict { padding: 10px; border-radius: 6px; background: #fee2e2; color: #991b1b; border: 1px solid #ef4444; margin-bottom: 12px; font-weight: 600; }
+    button { padding: 6px 10px; border-radius: 6px; border: 1px solid #94a3b8; background: #fff; cursor: pointer; font-size: 13px; }
+    button.primary { background: #0f172a; color: #fff; border-color: #0f172a; }
+    input, select, textarea { padding: 6px 8px; border-radius: 6px; border: 1px solid #94a3b8; font-size: 13px; }
+    .task-item { border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; margin-bottom: 10px; cursor: pointer; }
+    .task-item.selected { border-color: #0f172a; background: #f1f5f9; }
+    .event-line { font-size: 13px; padding: 6px 0; border-bottom: 1px solid #f1f5f9; }
+    .muted { color: #64748b; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useCallback } = React;
+
+    function formatAge(ms) {
+      const sec = Math.floor(ms / 1000);
+      if (sec < 60) return `${sec}s ago`;
+      const min = Math.floor(sec / 60);
+      if (min < 60) return `${min}m ${sec % 60}s ago`;
+      const hr = Math.floor(min / 60);
+      return `${hr}h ${min % 60}m ago`;
+    }
+
+    function App() {
+      const [tasks, setTasks] = useState([]);
+      const [contributors, setContributors] = useState([]);
+      const [selectedId, setSelectedId] = useState(null);
+      const [detail, setDetail] = useState(null);
+      const [conflictMsg, setConflictMsg] = useState(null);
+
+      // New task form
+      const [title, setTitle] = useState("");
+      const [description, setDescription] = useState("");
+      const [area, setArea] = useState("finance");
+      const [priority, setPriority] = useState("normal");
+      const [simMode, setSimMode] = useState("realistic");
+      const [submitImmediately, setSubmitImmediately] = useState(true);
+
+      // Operator controls
+      const [manualContribId, setManualContribId] = useState("c-1");
+      const [actionSimMode, setActionSimMode] = useState("realistic");
+
+      const loadDetail = useCallback(async (id) => {
+        if (!id) return;
+        const res = await fetch(`/api/tasks/${encodeURIComponent(id)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setDetail(data);
+        }
+      }, []);
+
+      const refreshAll = useCallback(async (targetId) => {
+        const res = await fetch("/api/tasks");
+        if (!res.ok) return;
+        const data = await res.json();
+        setTasks(data.tasks || []);
+        setContributors(data.contributors || []);
+        const idToLoad = targetId || selectedId || (data.tasks[0] && data.tasks[0].id);
+        if (idToLoad) {
+          setSelectedId(idToLoad);
+          await loadDetail(idToLoad);
+        }
+      }, [selectedId, loadDetail]);
+
+      useEffect(() => {
+        refreshAll();
+        const timer = setInterval(() => {
+          refreshAll();
+        }, 1500);
+        return () => clearInterval(timer);
+      }, [refreshAll]);
+
+      async function sendGuardedAction(taskObj, url, payload) {
+        setConflictMsg(null);
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...payload,
+            expectedState: taskObj.state,
+            expectedEpoch: taskObj.routing_epoch,
+          }),
+        });
+        const data = await res.json();
+        if (res.status === 409) {
+          setConflictMsg(data.error || "This task just changed, please review");
+          await refreshAll(taskObj.id);
+          return;
+        }
+        if (!res.ok) {
+          alert(data.error || "Action failed");
+          return;
+        }
+        await refreshAll(taskObj.id);
+      }
+
+      async function handleCreateTask(e) {
+        e.preventDefault();
+        if (!title.trim()) return;
+        const res = await fetch("/api/tasks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title,
+            description,
+            area,
+            priority,
+            submit: submitImmediately,
+            simMode,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.error || "Could not create task");
+          return;
+        }
+        setTitle("");
+        setDescription("");
+        const createdId = data.task && data.task.id;
+        await refreshAll(createdId);
+      }
+
+      const activeTask = detail && detail.task ? detail.task : null;
+
+      return (
+        <div>
+          <h1>Task Routing Operator</h1>
+
+          {conflictMsg && (
+            <div className="conflict" role="alert">
+              {conflictMsg}
+            </div>
+          )}
+
+          <div className="card">
+            <strong>Create Task</strong>
+            <form onSubmit={handleCreateTask} className="row">
+              <input
+                placeholder="Task title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+              />
+              <input
+                placeholder="Description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+              <select value={area} onChange={(e) => setArea(e.target.value)}>
+                <option value="finance">finance</option>
+                <option value="healthcare">healthcare</option>
+                <option value="data analysis">data analysis</option>
+                <option value="operations">operations</option>
+              </select>
+              <select value={priority} onChange={(e) => setPriority(e.target.value)}>
+                <option value="low">low</option>
+                <option value="normal">normal</option>
+                <option value="high">high</option>
+              </select>
+              <select value={simMode} onChange={(e) => setSimMode(e.target.value)}>
+                <option value="realistic">realistic</option>
+                <option value="fast">fast</option>
+                <option value="slow">slow</option>
+                <option value="hang">hang</option>
+                <option value="no_match">no_match</option>
+              </select>
+              <label className="muted">
+                <input
+                  type="checkbox"
+                  checked={submitImmediately}
+                  onChange={(e) => setSubmitImmediately(e.target.checked)}
+                />{" "}
+                Submit immediately
+              </label>
+              <button type="submit" className="primary">Create</button>
+            </form>
+          </div>
+
+          <div className="layout">
+            <div>
+              <div className="card">
+                <strong>Tasks ({tasks.length})</strong>
+                <div style={{ marginTop: 10 }}>
+                  {tasks.map((t) => (
+                    <div
+                      key={t.id}
+                      className={`task-item ${selectedId === t.id ? "selected" : ""}`}
+                      onClick={() => {
+                        setSelectedId(t.id);
+                        loadDetail(t.id);
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                        <strong>{t.title}</strong>
+                        <span className={`badge prio-${t.priority}`}>{t.priority}</span>
+                      </div>
+                      <div className="row">
+                        <span className="badge">{t.state}</span>
+                        <span className="muted">area: {t.area}</span>
+                        <span className="muted">epoch: #{t.routing_epoch}</span>
+                        <span className="muted">age: {formatAge(t.ageMs)}</span>
+                        <span className="muted">
+                          assignee: {t.assignee ? t.assignee.name : "none"}
+                        </span>
+                      </div>
+                      {t.pastUsualWindow && (
+                        <div className={t.priority === "high" ? "warn-high" : "warn-normal"}>
+                          {t.windowWarning} ({Math.floor((t.routingElapsedMs || 0) / 1000)}s elapsed)
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="card">
+                <strong>Contributors</strong>
+                {contributors.map((c) => (
+                  <div key={c.id} className="event-line">
+                    <strong>{c.name}</strong> ({c.id}) — areas: {c.areas.join(", ")} —{" "}
+                    <span className="muted">active tasks: {c.activeTaskCount ?? 0}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="card">
+              {!activeTask ? (
+                <p className="muted">Select a task to inspect and act.</p>
+              ) : (
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <h2 style={{ margin: 0 }}>{activeTask.title}</h2>
+                    <span className="badge">{activeTask.state}</span>
+                  </div>
+                  <p>{activeTask.description}</p>
+                  <div className="muted">
+                    ID: {activeTask.id} | Area: {activeTask.area} | Priority: {activeTask.priority} | Epoch: #{activeTask.routing_epoch} | Age: {formatAge(activeTask.ageMs)}
+                  </div>
+
+                  {activeTask.pastUsualWindow && (
+                    <div className={activeTask.priority === "high" ? "warn-high" : "warn-normal"}>
+                      {activeTask.windowWarning}
+                    </div>
+                  )}
+
+                  <div className="row" style={{ marginTop: 12 }}>
+                    <select value={actionSimMode} onChange={(e) => setActionSimMode(e.target.value)}>
+                      <option value="realistic">realistic</option>
+                      <option value="fast">fast</option>
+                      <option value="slow">slow</option>
+                      <option value="hang">hang</option>
+                      <option value="no_match">no_match</option>
+                    </select>
+                    <button
+                      className="primary"
+                      onClick={() =>
+                        sendGuardedAction(activeTask, `/api/tasks/${activeTask.id}/submit`, {
+                          simMode: actionSimMode,
+                        })
+                      }
+                    >
+                      Submit / Re-submit
+                    </button>
+                  </div>
+
+                  <div className="row">
+                    <select value={manualContribId} onChange={(e) => setManualContribId(e.target.value)}>
+                      {contributors.map((c) => {
+                        const inArea = c.areas.includes(activeTask.area);
+                        return (
+                          <option key={c.id} value={c.id}>
+                            {c.name} ({c.id}) {inArea ? "" : "[outside expertise]"}
+                          </option>
+                        );
+                      })}
+                    </select>
+                    <button
+                      onClick={() =>
+                        sendGuardedAction(activeTask, `/api/tasks/${activeTask.id}/intervene`, {
+                          actionType: "manual_assign",
+                          contributorId: manualContribId,
+                        })
+                      }
+                    >
+                      Manual Assign
+                    </button>
+                    <button
+                      onClick={() =>
+                        sendGuardedAction(activeTask, `/api/tasks/${activeTask.id}/intervene`, {
+                          actionType: "reroute",
+                          simMode: actionSimMode,
+                        })
+                      }
+                    >
+                      Intervene: Reroute
+                    </button>
+                    <button
+                      onClick={() =>
+                        sendGuardedAction(activeTask, `/api/tasks/${activeTask.id}/intervene`, {
+                          actionType: "return_to_draft",
+                        })
+                      }
+                    >
+                      Return to DRAFT
+                    </button>
+                    <button
+                      onClick={() =>
+                        sendGuardedAction(activeTask, `/api/tasks/${activeTask.id}/intervene`, {
+                          actionType: "mark_unresolved",
+                        })
+                      }
+                    >
+                      Mark UNRESOLVED
+                    </button>
+                  </div>
+
+                  <div className="row">
+                    <button
+                      onClick={() =>
+                        sendGuardedAction(activeTask, `/api/tasks/${activeTask.id}/recover`, {
+                          mode: "reroute",
+                          simMode: actionSimMode,
+                        })
+                      }
+                    >
+                      Recover (Reroute)
+                    </button>
+                    <button
+                      onClick={() =>
+                        sendGuardedAction(activeTask, `/api/tasks/${activeTask.id}/recover`, {
+                          mode: "manual_assign",
+                          contributorId: manualContribId,
+                        })
+                      }
+                    >
+                      Recover (Assign)
+                    </button>
+                    <button
+                      onClick={() =>
+                        sendGuardedAction(activeTask, `/api/tasks/${activeTask.id}/accept`, {})
+                      }
+                    >
+                      Accept
+                    </button>
+                    <button
+                      onClick={() =>
+                        sendGuardedAction(activeTask, `/api/tasks/${activeTask.id}/decline`, {})
+                      }
+                    >
+                      Decline
+                    </button>
+                    <button
+                      onClick={() =>
+                        sendGuardedAction(activeTask, `/api/tasks/${activeTask.id}/fail`, {})
+                      }
+                    >
+                      Fail
+                    </button>
+                    <button
+                      onClick={() =>
+                        sendGuardedAction(activeTask, `/api/tasks/${activeTask.id}/complete`, {})
+                      }
+                    >
+                      Complete
+                    </button>
+                  </div>
+
+                  <h3 style={{ marginTop: 18 }}>Routing Attempts</h3>
+                  {(detail.attempts || []).map((a) => (
+                    <div key={a.id} className="event-line">
+                      <strong>#{a.epoch}</strong> ({a.id}) — <code>{a.status}</code> — mode: {a.sim_mode}
+                      {a.candidate_contributor_id ? ` — candidate: ${a.candidate_contributor_id}` : ""}
+                      {a.late_arrived_at ? ` — late answer at ${a.late_arrived_at}` : ""}
+                    </div>
+                  ))}
+
+                  <h3 style={{ marginTop: 18 }}>Event History</h3>
+                  {(detail.events || []).map((ev) => (
+                    <div key={ev.seq} className="event-line">
+                      <span className="muted">#{ev.seq}</span> <strong>{ev.event_type}</strong>{" "}
+                      <span className="badge">{ev.actor}</span> — {ev.summary}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
