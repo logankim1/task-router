@@ -4,415 +4,1120 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Task Routing Operator</title>
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
-    body { font-family: system-ui, -apple-system, sans-serif; margin: 20px; background: #f8fafc; color: #0f172a; }
-    .layout { display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; align-items: start; }
-    .card { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 14px; margin-bottom: 14px; }
-    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
-    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; background: #e2e8f0; }
-    .prio-high { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
-    .prio-normal { background: #e0f2fe; color: #075985; }
-    .prio-low { background: #f1f5f9; color: #475569; }
-    .warn-normal { margin-top: 8px; padding: 8px; border-radius: 6px; background: #fef9c3; color: #854d0e; font-size: 13px; }
-    .warn-high { margin-top: 8px; padding: 10px 12px; border-radius: 6px; background: #dc2626; color: #ffffff; font-weight: 700; font-size: 14px; }
-    .conflict { padding: 10px; border-radius: 6px; background: #fee2e2; color: #991b1b; border: 1px solid #ef4444; margin-bottom: 12px; font-weight: 600; }
-    button { padding: 6px 10px; border-radius: 6px; border: 1px solid #94a3b8; background: #fff; cursor: pointer; font-size: 13px; }
-    button.primary { background: #0f172a; color: #fff; border-color: #0f172a; }
-    input, select, textarea { padding: 6px 8px; border-radius: 6px; border: 1px solid #94a3b8; font-size: 13px; }
-    .task-item { border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; margin-bottom: 10px; cursor: pointer; }
-    .task-item.selected { border-color: #0f172a; background: #f1f5f9; }
-    .event-line { font-size: 13px; padding: 6px 0; border-bottom: 1px solid #f1f5f9; }
-    .muted { color: #64748b; font-size: 12px; }
+    :root {
+      --bg: #f4f6f9;
+      --surface: #ffffff;
+      --border: #d6dde6;
+      --text: #0f172a;
+      --muted: #64748b;
+      --accent: #1e293b;
+      --accent-hover: #0f172a;
+      --danger-bg: #fef2f2;
+      --danger-border: #ef4444;
+      --danger-text: #991b1b;
+      --warn-bg: #fefce8;
+      --warn-border: #eab308;
+      --warn-text: #854d0e;
+      --ok-bg: #f0fdf4;
+      --ok-text: #166534;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+    }
+
+    .container {
+      max-width: 1320px;
+      margin: 0 auto;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 22px;
+    }
+
+    .status-meta {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      margin: 0 0 12px 0;
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .grid-main {
+      display: grid;
+      grid-template-columns: 1.15fr 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    @media (max-width: 960px) {
+      .grid-main {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .form-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    input[type="text"],
+    select {
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 13px;
+      background: #fff;
+      color: var(--text);
+    }
+
+    input[type="text"].title-input {
+      min-width: 190px;
+      flex: 1;
+    }
+
+    input[type="text"].desc-input {
+      min-width: 220px;
+      flex: 1.4;
+    }
+
+    button {
+      padding: 7px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #f1f5f9;
+    }
+
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    button.primary:hover {
+      background: var(--accent-hover);
+    }
+
+    button.danger {
+      border-color: #fca5a5;
+      color: var(--danger-text);
+      background: #fff;
+    }
+
+    button.danger:hover {
+      background: var(--danger-bg);
+    }
+
+    .banner-conflict {
+      background: var(--danger-bg);
+      border: 2px solid var(--danger-border);
+      color: var(--danger-text);
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 16px;
+      font-weight: 700;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .banner-error {
+      background: #fff7ed;
+      border: 1px solid #fb923c;
+      color: #9a3412;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .task-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      background: #fff;
+      transition: border-color 0.12s ease, background 0.12s ease;
+    }
+
+    .task-card:hover {
+      border-color: #94a3b8;
+    }
+
+    .task-card.selected {
+      border-color: var(--accent);
+      background: #f8fafc;
+      box-shadow: inset 3px 0 0 var(--accent);
+    }
+
+    .task-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .task-title {
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      font-size: 12px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      background: #e2e8f0;
+      color: #1e293b;
+    }
+
+    .badge-priority-low {
+      background: #f1f5f9;
+      color: #475569;
+      border: 1px solid #cbd5e1;
+    }
+
+    .badge-priority-normal {
+      background: #e0f2fe;
+      color: #075985;
+      border: 1px solid #7dd3fc;
+    }
+
+    .badge-priority-high {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #f87171;
+    }
+
+    .badge-state {
+      background: #e2e8f0;
+      color: #0f172a;
+    }
+
+    .badge-state-COMPLETED {
+      background: var(--ok-bg);
+      color: var(--ok-text);
+    }
+
+    .badge-state-UNRESOLVED,
+    .badge-state-RECOVERY_NEEDED {
+      background: var(--danger-bg);
+      color: var(--danger-text);
+    }
+
+    .badge-state-ROUTING {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .meta-line {
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 6px;
+    }
+
+    .window-warn-normal {
+      margin-top: 8px;
+      padding: 7px 10px;
+      border-radius: 6px;
+      background: var(--warn-bg);
+      border: 1px solid var(--warn-border);
+      color: var(--warn-text);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .window-warn-high {
+      margin-top: 8px;
+      padding: 10px 12px;
+      border-radius: 6px;
+      background: #dc2626;
+      border: 2px solid #7f1d1d;
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+    }
+
+    .action-group {
+      border-top: 1px solid #e2e8f0;
+      padding-top: 12px;
+      margin-top: 12px;
+    }
+
+    .action-group-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .list-item {
+      padding: 8px 0;
+      border-bottom: 1px solid #eef2f6;
+      font-size: 13px;
+    }
+
+    .list-item:last-child {
+      border-bottom: none;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+    }
+
+    .contrib-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 0;
+      border-bottom: 1px solid #eef2f6;
+      font-size: 13px;
+    }
+
+    .contrib-row:last-child {
+      border-bottom: none;
+    }
   </style>
 </head>
 <body>
-  <div id="root"></div>
+  <div class="container">
+    <header>
+      <h1>Task Routing Operator Console</h1>
+      <div class="status-meta">
+        Polling every 2s · <span id="last-sync">Syncing...</span>
+      </div>
+    </header>
 
-  <script type="text/babel">
-    const { useState, useEffect, useCallback } = React;
+    <div id="conflict-banner" class="banner-conflict" style="display: none;" role="alert">
+      <span id="conflict-message">This task just changed, please review</span>
+      <button type="button" id="dismiss-conflict-btn">Dismiss</button>
+    </div>
 
-    function formatAge(ms) {
-      const sec = Math.floor(ms / 1000);
-      if (sec < 60) return `${sec}s ago`;
-      const min = Math.floor(sec / 60);
-      if (min < 60) return `${min}m ${sec % 60}s ago`;
-      const hr = Math.floor(min / 60);
-      return `${hr}h ${min % 60}m ago`;
+    <div id="error-banner" class="banner-error" style="display: none;" role="alert"></div>
+
+    <section class="card">
+      <h2 class="card-title">Create Task</h2>
+      <form id="create-task-form" class="form-row">
+        <input
+          id="create-title"
+          class="title-input"
+          type="text"
+          placeholder="Task title"
+          required
+        />
+        <input
+          id="create-description"
+          class="desc-input"
+          type="text"
+          placeholder="Description"
+        />
+        <select id="create-area" aria-label="Area">
+          <option value="finance">finance</option>
+          <option value="healthcare">healthcare</option>
+          <option value="data analysis">data analysis</option>
+          <option value="operations">operations</option>
+        </select>
+        <select id="create-priority" aria-label="Priority">
+          <option value="low">low</option>
+          <option value="normal" selected>normal</option>
+          <option value="high">high</option>
+        </select>
+        <select id="create-sim-mode" aria-label="Simulation mode">
+          <option value="realistic">realistic</option>
+          <option value="fast">fast</option>
+          <option value="slow">slow</option>
+          <option value="hang">hang</option>
+          <option value="no_match">no_match</option>
+        </select>
+        <button type="submit" class="primary" data-submit="true">Create &amp; submit</button>
+        <button type="button" id="create-draft-btn">Create draft only</button>
+      </form>
+    </section>
+
+    <div class="grid-main">
+      <div>
+        <section class="card">
+          <h2 class="card-title">Tasks (<span id="task-count">0</span>)</h2>
+          <div id="task-list"></div>
+        </section>
+
+        <section class="card">
+          <h2 class="card-title">Contributors</h2>
+          <div id="contributors-panel"></div>
+        </section>
+      </div>
+
+      <div>
+        <section class="card" id="detail-panel">
+          <h2 class="card-title">Task Inspector &amp; History</h2>
+          <p class="muted">Select a task from the list to view actions, routing attempts, and event history.</p>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const WINDOW_THRESHOLD_MS = 20000;
+    const POLL_INTERVAL_MS = 2000;
+
+    const state = {
+      tasks: [],
+      contributors: [],
+      selectedTaskId: null,
+      detail: null,
+      lastServerNowMs: Date.now(),
+      lastClientPollMs: Date.now(),
+      pollInFlight: false,
+    };
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
     }
 
-    function App() {
-      const [tasks, setTasks] = useState([]);
-      const [contributors, setContributors] = useState([]);
-      const [selectedId, setSelectedId] = useState(null);
-      const [detail, setDetail] = useState(null);
-      const [conflictMsg, setConflictMsg] = useState(null);
+    function formatDuration(ms) {
+      const clamped = Math.max(0, Math.floor(Number(ms) || 0));
+      const totalSec = Math.floor(clamped / 1000);
+      if (totalSec < 60) return `${totalSec}s`;
+      const min = Math.floor(totalSec / 60);
+      const sec = totalSec % 60;
+      if (min < 60) return `${min}m ${sec}s`;
+      const hr = Math.floor(min / 60);
+      const remMin = min % 60;
+      return `${hr}h ${remMin}m`;
+    }
 
-      // New task form
-      const [title, setTitle] = useState("");
-      const [description, setDescription] = useState("");
-      const [area, setArea] = useState("finance");
-      const [priority, setPriority] = useState("normal");
-      const [simMode, setSimMode] = useState("realistic");
-      const [submitImmediately, setSubmitImmediately] = useState(true);
+    function formatTimestamp(ms) {
+      if (!ms) return "—";
+      const d = new Date(Number(ms));
+      if (Number.isNaN(d.getTime())) return String(ms);
+      return d.toLocaleTimeString([], { hour12: false }) + "." + String(d.getMilliseconds()).padStart(3, "0");
+    }
 
-      // Operator controls
-      const [manualContribId, setManualContribId] = useState("c-1");
-      const [actionSimMode, setActionSimMode] = useState("realistic");
+    function estimatedNowMs() {
+      const elapsedSincePoll = Math.max(0, Date.now() - state.lastClientPollMs);
+      return state.lastServerNowMs + elapsedSincePoll;
+    }
 
-      const loadDetail = useCallback(async (id) => {
-        if (!id) return;
-        const res = await fetch(`/api/tasks/${encodeURIComponent(id)}`);
-        if (res.ok) {
-          const data = await res.json();
-          setDetail(data);
-        }
-      }, []);
+    function showError(msg) {
+      const el = document.getElementById("error-banner");
+      if (!msg) {
+        el.style.display = "none";
+        el.textContent = "";
+        return;
+      }
+      el.style.display = "block";
+      el.textContent = msg;
+    }
 
-      const refreshAll = useCallback(async (targetId) => {
-        const res = await fetch("/api/tasks");
-        if (!res.ok) return;
-        const data = await res.json();
-        setTasks(data.tasks || []);
-        setContributors(data.contributors || []);
-        const idToLoad = targetId || selectedId || (data.tasks[0] && data.tasks[0].id);
-        if (idToLoad) {
-          setSelectedId(idToLoad);
-          await loadDetail(idToLoad);
-        }
-      }, [selectedId, loadDetail]);
+    function showConflict(msg) {
+      const el = document.getElementById("conflict-banner");
+      const textEl = document.getElementById("conflict-message");
+      textEl.textContent = msg || "This task just changed, please review";
+      el.style.display = "flex";
+    }
 
-      useEffect(() => {
-        refreshAll();
-        const timer = setInterval(() => {
-          refreshAll();
-        }, 1500);
-        return () => clearInterval(timer);
-      }, [refreshAll]);
+    function hideConflict() {
+      document.getElementById("conflict-banner").style.display = "none";
+    }
 
-      async function sendGuardedAction(taskObj, url, payload) {
-        setConflictMsg(null);
-        const res = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...payload,
-            expectedState: taskObj.state,
-            expectedEpoch: taskObj.routing_epoch,
-          }),
-        });
-        const data = await res.json();
-        if (res.status === 409) {
-          setConflictMsg(data.error || "This task just changed, please review");
-          await refreshAll(taskObj.id);
-          return;
-        }
-        if (!res.ok) {
-          alert(data.error || "Action failed");
-          return;
-        }
-        await refreshAll(taskObj.id);
+    function getRoutingElapsedMs(task, nowMs) {
+      if (task.state !== "ROUTING") return null;
+      const activeAttempt =
+        task.activeAttempt ||
+        (state.detail &&
+          state.detail.task &&
+          state.detail.task.id === task.id &&
+          Array.isArray(state.detail.attempts) &&
+          state.detail.attempts.find((a) => a.status === "pending")) ||
+        null;
+      if (activeAttempt && typeof activeAttempt.started_at === "number") {
+        return Math.max(0, nowMs - activeAttempt.started_at);
+      }
+      if (typeof task.routingElapsedMs === "number") {
+        const elapsedSincePoll = Math.max(0, Date.now() - state.lastClientPollMs);
+        return Math.max(0, task.routingElapsedMs + elapsedSincePoll);
+      }
+      return Math.max(0, nowMs - task.updated_at);
+    }
+
+    function renderWindowWarning(task, elapsedMs) {
+      if (task.state !== "ROUTING" || elapsedMs === null || elapsedMs < WINDOW_THRESHOLD_MS) {
+        return "";
+      }
+      const cls = task.priority === "high" ? "window-warn-high" : "window-warn-normal";
+      const label =
+        task.windowWarning || "past the usual response window, may never return";
+      return `<div class="${cls}">${escapeHtml(label)} (${formatDuration(elapsedMs)} elapsed)</div>`;
+    }
+
+    function renderTaskList() {
+      const nowMs = estimatedNowMs();
+      document.getElementById("task-count").textContent = String(state.tasks.length);
+      const container = document.getElementById("task-list");
+
+      if (state.tasks.length === 0) {
+        container.innerHTML = `<p class="muted">No tasks yet.</p>`;
+        return;
       }
 
-      async function handleCreateTask(e) {
-        e.preventDefault();
-        if (!title.trim()) return;
-        const res = await fetch("/api/tasks", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title,
-            description,
-            area,
-            priority,
-            submit: submitImmediately,
-            simMode,
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          alert(data.error || "Could not create task");
-          return;
-        }
-        setTitle("");
-        setDescription("");
-        const createdId = data.task && data.task.id;
-        await refreshAll(createdId);
-      }
+      container.innerHTML = state.tasks
+        .map((t) => {
+          const selectedCls = t.id === state.selectedTaskId ? "selected" : "";
+          const ageMs = Math.max(0, nowMs - t.created_at);
+          const routingElapsed = getRoutingElapsedMs(t, nowMs);
+          const assigneeText = t.assignee
+            ? `${t.assignee.name} (${t.assignee.id})`
+            : t.assignee_id || "Unassigned";
 
-      const activeTask = detail && detail.task ? detail.task : null;
-
-      return (
-        <div>
-          <h1>Task Routing Operator</h1>
-
-          {conflictMsg && (
-            <div className="conflict" role="alert">
-              {conflictMsg}
+          return `
+            <div class="task-card ${selectedCls}" data-task-id="${escapeHtml(t.id)}">
+              <div class="task-top">
+                <div class="task-title">${escapeHtml(t.title)}</div>
+                <div class="badges">
+                  <span class="badge badge-priority-${escapeHtml(t.priority)}">${escapeHtml(t.priority)}</span>
+                  <span class="badge badge-state badge-state-${escapeHtml(t.state)}">${escapeHtml(t.state)}</span>
+                </div>
+              </div>
+              <div class="meta-line">
+                <span><strong>Area:</strong> ${escapeHtml(t.area)}</span>
+                <span><strong>Assignee:</strong> ${escapeHtml(assigneeText)}</span>
+                <span><strong>Created:</strong> ${escapeHtml(formatDuration(ageMs))} ago</span>
+                <span><strong>Epoch:</strong> <span class="mono">#${escapeHtml(t.routing_epoch)}</span></span>
+                ${
+                  t.state === "ROUTING" && routingElapsed !== null
+                    ? `<span><strong>Routing elapsed:</strong> ${escapeHtml(formatDuration(routingElapsed))}</span>`
+                    : ""
+                }
+              </div>
+              ${renderWindowWarning(t, routingElapsed)}
             </div>
-          )}
+          `;
+        })
+        .join("");
 
-          <div className="card">
-            <strong>Create Task</strong>
-            <form onSubmit={handleCreateTask} className="row">
-              <input
-                placeholder="Task title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                required
-              />
-              <input
-                placeholder="Description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-              <select value={area} onChange={(e) => setArea(e.target.value)}>
-                <option value="finance">finance</option>
-                <option value="healthcare">healthcare</option>
-                <option value="data analysis">data analysis</option>
-                <option value="operations">operations</option>
-              </select>
-              <select value={priority} onChange={(e) => setPriority(e.target.value)}>
-                <option value="low">low</option>
-                <option value="normal">normal</option>
-                <option value="high">high</option>
-              </select>
-              <select value={simMode} onChange={(e) => setSimMode(e.target.value)}>
+      container.querySelectorAll(".task-card").forEach((el) => {
+        el.addEventListener("click", () => {
+          const id = el.getAttribute("data-task-id");
+          if (id) {
+            selectTask(id);
+          }
+        });
+      });
+    }
+
+    function renderContributors() {
+      const panel = document.getElementById("contributors-panel");
+      if (!state.contributors.length) {
+        panel.innerHTML = `<p class="muted">No contributors.</p>`;
+        return;
+      }
+
+      panel.innerHTML = state.contributors
+        .map((c) => {
+          const areasText = Array.isArray(c.areas) ? c.areas.join(", ") : "";
+          const activeCount =
+            typeof c.activeTaskCount === "number"
+              ? c.activeTaskCount
+              : state.tasks.filter(
+                  (t) =>
+                    t.assignee_id === c.id &&
+                    (t.state === "ASSIGNED" || t.state === "IN_PROGRESS")
+                ).length;
+
+          return `
+            <div class="contrib-row">
+              <div>
+                <strong>${escapeHtml(c.name)}</strong> <span class="mono muted">(${escapeHtml(c.id)})</span>
+                <div class="muted">Areas: ${escapeHtml(areasText || "none")}</div>
+              </div>
+              <span class="badge">Active tasks: ${escapeHtml(activeCount)}</span>
+            </div>
+          `;
+        })
+        .join("");
+    }
+
+    function renderActionsForTask(task) {
+      const canSubmit =
+        task.state === "DRAFT" ||
+        task.state === "ROUTING" ||
+        task.state === "UNRESOLVED" ||
+        task.state === "RECOVERY_NEEDED";
+
+      const isAssigned = task.state === "ASSIGNED";
+      const isInProgress = task.state === "IN_PROGRESS";
+      const canRecover =
+        task.state === "RECOVERY_NEEDED" || task.state === "UNRESOLVED";
+      const canIntervene = task.state !== "COMPLETED";
+
+      const contributorOptions = state.contributors
+        .map((c) => {
+          const inArea = Array.isArray(c.areas) && c.areas.includes(task.area);
+          const tag = inArea ? "" : " [outside expertise]";
+          return `<option value="${escapeHtml(c.id)}">${escapeHtml(c.name)} (${escapeHtml(c.id)})${escapeHtml(tag)}</option>`;
+        })
+        .join("");
+
+      const simModeSelectHtml = `
+        <select id="action-sim-mode" aria-label="Action simulation mode">
+          <option value="realistic">realistic</option>
+          <option value="fast">fast</option>
+          <option value="slow">slow</option>
+          <option value="hang">hang</option>
+          <option value="no_match">no_match</option>
+        </select>
+      `;
+
+      let html = "";
+
+      if (canSubmit) {
+        html += `
+          <div class="action-group">
+            <div class="action-group-label">Routing Submission</div>
+            <div class="form-row">
+              ${simModeSelectHtml}
+              <button type="button" class="primary" id="btn-submit-task">Submit / Re-submit</button>
+            </div>
+          </div>
+        `;
+      }
+
+      if (isAssigned) {
+        html += `
+          <div class="action-group">
+            <div class="action-group-label">Assignment Response</div>
+            <div class="form-row">
+              <button type="button" class="primary" id="btn-accept-task">Accept</button>
+              <button type="button" id="btn-decline-task">Decline</button>
+              <button type="button" class="danger" id="btn-fail-task">Fail</button>
+            </div>
+          </div>
+        `;
+      }
+
+      if (isInProgress) {
+        html += `
+          <div class="action-group">
+            <div class="action-group-label">In-Progress Completion</div>
+            <div class="form-row">
+              <button type="button" class="primary" id="btn-complete-task">Complete</button>
+            </div>
+          </div>
+        `;
+      }
+
+      if (canRecover) {
+        html += `
+          <div class="action-group">
+            <div class="action-group-label">Recovery (${escapeHtml(task.state)})</div>
+            <div class="form-row" style="margin-bottom: 8px;">
+              <select id="recover-sim-mode" aria-label="Recovery simulation mode">
                 <option value="realistic">realistic</option>
                 <option value="fast">fast</option>
                 <option value="slow">slow</option>
                 <option value="hang">hang</option>
                 <option value="no_match">no_match</option>
               </select>
-              <label className="muted">
-                <input
-                  type="checkbox"
-                  checked={submitImmediately}
-                  onChange={(e) => setSubmitImmediately(e.target.checked)}
-                />{" "}
-                Submit immediately
-              </label>
-              <button type="submit" className="primary">Create</button>
-            </form>
-          </div>
-
-          <div className="layout">
-            <div>
-              <div className="card">
-                <strong>Tasks ({tasks.length})</strong>
-                <div style={{ marginTop: 10 }}>
-                  {tasks.map((t) => (
-                    <div
-                      key={t.id}
-                      className={`task-item ${selectedId === t.id ? "selected" : ""}`}
-                      onClick={() => {
-                        setSelectedId(t.id);
-                        loadDetail(t.id);
-                      }}
-                    >
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                        <strong>{t.title}</strong>
-                        <span className={`badge prio-${t.priority}`}>{t.priority}</span>
-                      </div>
-                      <div className="row">
-                        <span className="badge">{t.state}</span>
-                        <span className="muted">area: {t.area}</span>
-                        <span className="muted">epoch: #{t.routing_epoch}</span>
-                        <span className="muted">age: {formatAge(t.ageMs)}</span>
-                        <span className="muted">
-                          assignee: {t.assignee ? t.assignee.name : "none"}
-                        </span>
-                      </div>
-                      {t.pastUsualWindow && (
-                        <div className={t.priority === "high" ? "warn-high" : "warn-normal"}>
-                          {t.windowWarning} ({Math.floor((t.routingElapsedMs || 0) / 1000)}s elapsed)
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="card">
-                <strong>Contributors</strong>
-                {contributors.map((c) => (
-                  <div key={c.id} className="event-line">
-                    <strong>{c.name}</strong> ({c.id}) — areas: {c.areas.join(", ")} —{" "}
-                    <span className="muted">active tasks: {c.activeTaskCount ?? 0}</span>
-                  </div>
-                ))}
-              </div>
+              <button type="button" class="primary" id="btn-recover-reroute">Recover: Re-route</button>
             </div>
-
-            <div className="card">
-              {!activeTask ? (
-                <p className="muted">Select a task to inspect and act.</p>
-              ) : (
-                <div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <h2 style={{ margin: 0 }}>{activeTask.title}</h2>
-                    <span className="badge">{activeTask.state}</span>
-                  </div>
-                  <p>{activeTask.description}</p>
-                  <div className="muted">
-                    ID: {activeTask.id} | Area: {activeTask.area} | Priority: {activeTask.priority} | Epoch: #{activeTask.routing_epoch} | Age: {formatAge(activeTask.ageMs)}
-                  </div>
-
-                  {activeTask.pastUsualWindow && (
-                    <div className={activeTask.priority === "high" ? "warn-high" : "warn-normal"}>
-                      {activeTask.windowWarning}
-                    </div>
-                  )}
-
-                  <div className="row" style={{ marginTop: 12 }}>
-                    <select value={actionSimMode} onChange={(e) => setActionSimMode(e.target.value)}>
-                      <option value="realistic">realistic</option>
-                      <option value="fast">fast</option>
-                      <option value="slow">slow</option>
-                      <option value="hang">hang</option>
-                      <option value="no_match">no_match</option>
-                    </select>
-                    <button
-                      className="primary"
-                      onClick={() =>
-                        sendGuardedAction(activeTask, `/api/tasks/${activeTask.id}/submit`, {
-                          simMode: actionSimMode,
-                        })
-                      }
-                    >
-                      Submit / Re-submit
-                    </button>
-                  </div>
-
-                  <div className="row">
-                    <select value={manualContribId} onChange={(e) => setManualContribId(e.target.value)}>
-                      {contributors.map((c) => {
-                        const inArea = c.areas.includes(activeTask.area);
-                        return (
-                          <option key={c.id} value={c.id}>
-                            {c.name} ({c.id}) {inArea ? "" : "[outside expertise]"}
-                          </option>
-                        );
-                      })}
-                    </select>
-                    <button
-                      onClick={() =>
-                        sendGuardedAction(activeTask, `/api/tasks/${activeTask.id}/intervene`, {
-                          actionType: "manual_assign",
-                          contributorId: manualContribId,
-                        })
-                      }
-                    >
-                      Manual Assign
-                    </button>
-                    <button
-                      onClick={() =>
-                        sendGuardedAction(activeTask, `/api/tasks/${activeTask.id}/intervene`, {
-                          actionType: "reroute",
-                          simMode: actionSimMode,
-                        })
-                      }
-                    >
-                      Intervene: Reroute
-                    </button>
-                    <button
-                      onClick={() =>
-                        sendGuardedAction(activeTask, `/api/tasks/${activeTask.id}/intervene`, {
-                          actionType: "return_to_draft",
-                        })
-                      }
-                    >
-                      Return to DRAFT
-                    </button>
-                    <button
-                      onClick={() =>
-                        sendGuardedAction(activeTask, `/api/tasks/${activeTask.id}/intervene`, {
-                          actionType: "mark_unresolved",
-                        })
-                      }
-                    >
-                      Mark UNRESOLVED
-                    </button>
-                  </div>
-
-                  <div className="row">
-                    <button
-                      onClick={() =>
-                        sendGuardedAction(activeTask, `/api/tasks/${activeTask.id}/recover`, {
-                          mode: "reroute",
-                          simMode: actionSimMode,
-                        })
-                      }
-                    >
-                      Recover (Reroute)
-                    </button>
-                    <button
-                      onClick={() =>
-                        sendGuardedAction(activeTask, `/api/tasks/${activeTask.id}/recover`, {
-                          mode: "manual_assign",
-                          contributorId: manualContribId,
-                        })
-                      }
-                    >
-                      Recover (Assign)
-                    </button>
-                    <button
-                      onClick={() =>
-                        sendGuardedAction(activeTask, `/api/tasks/${activeTask.id}/accept`, {})
-                      }
-                    >
-                      Accept
-                    </button>
-                    <button
-                      onClick={() =>
-                        sendGuardedAction(activeTask, `/api/tasks/${activeTask.id}/decline`, {})
-                      }
-                    >
-                      Decline
-                    </button>
-                    <button
-                      onClick={() =>
-                        sendGuardedAction(activeTask, `/api/tasks/${activeTask.id}/fail`, {})
-                      }
-                    >
-                      Fail
-                    </button>
-                    <button
-                      onClick={() =>
-                        sendGuardedAction(activeTask, `/api/tasks/${activeTask.id}/complete`, {})
-                      }
-                    >
-                      Complete
-                    </button>
-                  </div>
-
-                  <h3 style={{ marginTop: 18 }}>Routing Attempts</h3>
-                  {(detail.attempts || []).map((a) => (
-                    <div key={a.id} className="event-line">
-                      <strong>#{a.epoch}</strong> ({a.id}) — <code>{a.status}</code> — mode: {a.sim_mode}
-                      {a.candidate_contributor_id ? ` — candidate: ${a.candidate_contributor_id}` : ""}
-                      {a.late_arrived_at ? ` — late answer at ${a.late_arrived_at}` : ""}
-                    </div>
-                  ))}
-
-                  <h3 style={{ marginTop: 18 }}>Event History</h3>
-                  {(detail.events || []).map((ev) => (
-                    <div key={ev.seq} className="event-line">
-                      <span className="muted">#{ev.seq}</span> <strong>{ev.event_type}</strong>{" "}
-                      <span className="badge">{ev.actor}</span> — {ev.summary}
-                    </div>
-                  ))}
-                </div>
-              )}
+            <div class="form-row">
+              <select id="recover-contrib-select" aria-label="Recovery contributor">${contributorOptions}</select>
+              <button type="button" id="btn-recover-assign">Recover: Manual Assign</button>
             </div>
           </div>
-        </div>
-      );
+        `;
+      }
+
+      if (canIntervene) {
+        html += `
+          <div class="action-group">
+            <div class="action-group-label">Operator Intervention</div>
+            <div class="form-row" style="margin-bottom: 8px;">
+              <select id="intervene-contrib-select" aria-label="Manual assign contributor">${contributorOptions}</select>
+              <button type="button" id="btn-intervene-assign">Manual Assign</button>
+            </div>
+            <div class="form-row" style="margin-bottom: 8px;">
+              <select id="intervene-sim-mode" aria-label="Intervene reroute mode">
+                <option value="realistic">realistic</option>
+                <option value="fast">fast</option>
+                <option value="slow">slow</option>
+                <option value="hang">hang</option>
+                <option value="no_match">no_match</option>
+              </select>
+              <button type="button" id="btn-intervene-reroute">Re-route</button>
+              <button type="button" id="btn-intervene-draft">Return to DRAFT</button>
+              <button type="button" class="danger" id="btn-intervene-unresolved">Mark UNRESOLVED</button>
+            </div>
+          </div>
+        `;
+      }
+
+      if (!html) {
+        html = `<p class="muted" style="margin-top: 12px;">No operator actions available for state ${escapeHtml(task.state)}.</p>`;
+      }
+
+      return html;
     }
 
-    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+    function renderDetailPanel() {
+      const panel = document.getElementById("detail-panel");
+      const detail = state.detail;
+
+      if (!state.selectedTaskId || !detail || !detail.task) {
+        panel.innerHTML = `
+          <h2 class="card-title">Task Inspector &amp; History</h2>
+          <p class="muted">Select a task to view actions, routing attempts, and event history.</p>
+        `;
+        return;
+      }
+
+      const task = detail.task;
+      const nowMs = estimatedNowMs();
+      const ageMs = Math.max(0, nowMs - task.created_at);
+      const routingElapsed = getRoutingElapsedMs(task, nowMs);
+      const assigneeText = task.assignee
+        ? `${task.assignee.name} (${task.assignee.id})`
+        : task.assignee_id || "Unassigned";
+
+      const attempts = Array.isArray(detail.attempts) ? detail.attempts : [];
+      const events = Array.isArray(detail.events) ? detail.events : [];
+
+      const attemptsHtml = attempts.length
+        ? attempts
+            .map((a) => {
+              const lateInfo =
+                a.late_arrived_at || a.late_candidate_contributor_id
+                  ? ` · late arrival: ${escapeHtml(formatTimestamp(a.late_arrived_at))}${
+                      a.late_candidate_contributor_id
+                        ? ` (candidate ${escapeHtml(a.late_candidate_contributor_id)})`
+                        : ""
+                    }`
+                  : "";
+              const candInfo = a.candidate_contributor_id
+                ? ` · candidate: ${escapeHtml(a.candidate_contributor_id)}`
+                : "";
+              return `
+                <div class="list-item">
+                  <div>
+                    <span class="mono"><strong>Epoch #${escapeHtml(a.epoch)}</strong></span>
+                    · <span class="badge">${escapeHtml(a.status)}</span>
+                    · mode: <span class="mono">${escapeHtml(a.sim_mode)}</span>
+                    <span class="mono muted">(${escapeHtml(a.id)})</span>
+                  </div>
+                  <div class="muted" style="margin-top: 3px;">
+                    Started ${escapeHtml(formatTimestamp(a.started_at))}
+                    ${a.completed_at ? ` · Completed ${escapeHtml(formatTimestamp(a.completed_at))}` : ""}
+                    ${candInfo}
+                    ${lateInfo}
+                  </div>
+                </div>
+              `;
+            })
+            .join("")
+        : `<p class="muted">No routing attempts recorded.</p>`;
+
+      const eventsHtml = events.length
+        ? events
+            .map((ev) => {
+              const epochLabel =
+                ev.epoch !== null && ev.epoch !== undefined ? ` · epoch #${ev.epoch}` : "";
+              return `
+                <div class="list-item">
+                  <div>
+                    <span class="mono muted">#${escapeHtml(ev.seq)}</span>
+                    <strong>${escapeHtml(ev.event_type)}</strong>
+                    <span class="badge">${escapeHtml(ev.actor)}</span>
+                    <span class="muted">${escapeHtml(formatTimestamp(ev.created_at))}${escapeHtml(epochLabel)}</span>
+                  </div>
+                  <div style="margin-top: 3px;">${escapeHtml(ev.summary)}</div>
+                </div>
+              `;
+            })
+            .join("")
+        : `<p class="muted">No events recorded.</p>`;
+
+      panel.innerHTML = `
+        <div class="task-top">
+          <div>
+            <h2 class="card-title" style="margin-bottom: 4px; font-size: 18px;">${escapeHtml(task.title)}</h2>
+            <div class="muted mono">${escapeHtml(task.id)}</div>
+          </div>
+          <div class="badges">
+            <span class="badge badge-priority-${escapeHtml(task.priority)}">${escapeHtml(task.priority)}</span>
+            <span class="badge badge-state badge-state-${escapeHtml(task.state)}">${escapeHtml(task.state)}</span>
+          </div>
+        </div>
+
+        <p style="margin: 8px 0 10px 0;">${escapeHtml(task.description || "No description.")}</p>
+
+        <div class="meta-line">
+          <span><strong>Area:</strong> ${escapeHtml(task.area)}</span>
+          <span><strong>Assignee:</strong> ${escapeHtml(assigneeText)}</span>
+          <span><strong>Epoch:</strong> <span class="mono">#${escapeHtml(task.routing_epoch)}</span></span>
+          <span><strong>Age:</strong> ${escapeHtml(formatDuration(ageMs))}</span>
+          ${
+            task.state === "ROUTING" && routingElapsed !== null
+              ? `<span><strong>Routing elapsed:</strong> ${escapeHtml(formatDuration(routingElapsed))}</span>`
+              : ""
+          }
+        </div>
+
+        ${renderWindowWarning(task, routingElapsed)}
+        ${renderActionsForTask(task)}
+
+        <div class="action-group">
+          <div class="action-group-label">Routing Attempts (${attempts.length})</div>
+          ${attemptsHtml}
+        </div>
+
+        <div class="action-group">
+          <div class="action-group-label">Event History (${events.length})</div>
+          ${eventsHtml}
+        </div>
+      `;
+
+      bindTaskActionHandlers(task);
+    }
+
+    async function sendTaskAction(task, pathSuffix, extraBody) {
+      showError("");
+      const payload = Object.assign({}, extraBody || {}, {
+        expectedState: task.state,
+        expectedEpoch: task.routing_epoch,
+      });
+
+      const res = await fetch(`/api/tasks/${encodeURIComponent(task.id)}${pathSuffix}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 409) {
+        showConflict(data.error || "This task just changed, please review");
+        await pollNow(task.id);
+        return;
+      }
+
+      if (!res.ok) {
+        showError(data.error || `Request failed (${res.status})`);
+        await pollNow(task.id);
+        return;
+      }
+
+      hideConflict();
+      if (data.task && data.events && data.attempts) {
+        state.detail = {
+          task: data.task,
+          attempts: data.attempts,
+          events: data.events,
+        };
+      }
+      await pollNow(task.id);
+    }
+
+    function bindTaskActionHandlers(task) {
+      const submitBtn = document.getElementById("btn-submit-task");
+      if (submitBtn) {
+        submitBtn.addEventListener("click", () => {
+          const modeEl = document.getElementById("action-sim-mode");
+          sendTaskAction(task, "/submit", { simMode: modeEl ? modeEl.value : "realistic" });
+        });
+      }
+
+      const acceptBtn = document.getElementById("btn-accept-task");
+      if (acceptBtn) {
+        acceptBtn.addEventListener("click", () => sendTaskAction(task, "/accept", {}));
+      }
+
+      const declineBtn = document.getElementById("btn-decline-task");
+      if (declineBtn) {
+        declineBtn.addEventListener("click", () => sendTaskAction(task, "/decline", {}));
+      }
+
+      const failBtn = document.getElementById("btn-fail-task");
+      if (failBtn) {
+        failBtn.addEventListener("click", () => sendTaskAction(task, "/fail", {}));
+      }
+
+      const completeBtn = document.getElementById("btn-complete-task");
+      if (completeBtn) {
+        completeBtn.addEventListener("click", () => sendTaskAction(task, "/complete", {}));
+      }
+
+      const recoverRerouteBtn = document.getElementById("btn-recover-reroute");
+      if (recoverRerouteBtn) {
+        recoverRerouteBtn.addEventListener("click", () => {
+          const modeEl = document.getElementById("recover-sim-mode");
+          sendTaskAction(task, "/recover", {
+            mode: "reroute",
+            simMode: modeEl ? modeEl.value : "realistic",
+          });
+        });
+      }
+
+      const recoverAssignBtn = document.getElementById("btn-recover-assign");
+      if (recoverAssignBtn) {
+        recoverAssignBtn.addEventListener("click", () => {
+          const sel = document.getElementById("recover-contrib-select");
+          sendTaskAction(task, "/recover", {
+            mode: "manual_assign",
+            contributorId: sel ? sel.value : "",
+          });
+        });
+      }
+
+      const interveneAssignBtn = document.getElementById("btn-intervene-assign");
+      if (interveneAssignBtn) {
+        interveneAssignBtn.addEventListener("click", () => {
+          const sel = document.getElementById("intervene-contrib-select");
+          sendTaskAction(task, "/intervene", {
+            actionType: "manual_assign",
+            contributorId: sel ? sel.value : "",
+          });
+        });
+      }
+
+      const interveneRerouteBtn = document.getElementById("btn-intervene-reroute");
+      if (interveneRerouteBtn) {
+        interveneRerouteBtn.addEventListener("click", () => {
+          const modeEl = document.getElementById("intervene-sim-mode");
+          sendTaskAction(task, "/intervene", {
+            actionType: "reroute",
+            simMode: modeEl ? modeEl.value : "realistic",
+          });
+        });
+      }
+
+      const interveneDraftBtn = document.getElementById("btn-intervene-draft");
+      if (interveneDraftBtn) {
+        interveneDraftBtn.addEventListener("click", () => {
+          sendTaskAction(task, "/intervene", { actionType: "return_to_draft" });
+        });
+      }
+
+      const interveneUnresolvedBtn = document.getElementById("btn-intervene-unresolved");
+      if (interveneUnresolvedBtn) {
+        interveneUnresolvedBtn.addEventListener("click", () => {
+          sendTaskAction(task, "/intervene", { actionType: "mark_unresolved" });
+        });
+      }
+    }
+
+    async function fetchTaskDetail(taskId) {
+      if (!taskId) {
+        state.detail = null;
+        return;
+      }
+      const res = await fetch(`/api/tasks/${encodeURIComponent(taskId)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (typeof data.nowMs === "number") {
+        state.lastServerNowMs = data.nowMs;
+        state.lastClientPollMs = Date.now();
+      }
+      state.detail = {
+        task: data.task,
+        attempts: data.attempts || [],
+        events: data.events || [],
+      };
+    }
+
+    async function selectTask(taskId) {
+      state.selectedTaskId = taskId;
+      renderTaskList();
+      await fetchTaskDetail(taskId);
+      renderDetailPanel();
+    }
+
+    async function pollNow(preferredTaskId) {
+      if (state.pollInFlight) return;
+      state.pollInFlight = true;
+      try {
+        const res = await fetch("/api/tasks");
+        if (!res.ok) {
+          showError(`Failed to load tasks (${res.status})`);
+          return;
+        }
+        const data = await res.json();
+        state.tasks = Array.isArray(data.tasks) ? data.tasks : [];
+        state.contributors = Array.isArray(data.contributors) ? data.contributors : [];
+        if (typeof data.nowMs === "number") {
+          state.lastServerNowMs = data.nowMs;
+        }
+        state.lastClientPollMs = Date.now();
+
+        const targetId =
+          preferredTaskId ||
+          state.selectedTaskId ||
+          (state.tasks[0] ? state.tasks[0].id : null);
+
+        if (targetId && state.tasks.some((t) => t.id === targetId)) {
+          state.selectedTaskId = targetId;
+          await fetchTaskDetail(targetId);
+        } else if (state.tasks.length > 0) {
+          state.selectedTaskId = state.tasks[0].id;
+          await fetchTaskDetail(state.selectedTaskId);
+        } else {
+          state.selectedTaskId = null;
+          state.detail = null;
+        }
+
+        document.getElementById("last-sync").textContent =
+          `Updated ${new Date().toLocaleTimeString([], { hour12: false })}`;
+
+        renderTaskList();
+        renderContributors();
+        renderDetailPanel();
+      } catch (err) {
+        showError(`Network error while polling: ${err && err.message ? err.message : String(err)}`);
+      } finally {
+        state.pollInFlight = false;
+      }
+    }
+
+    async function submitCreateForm(shouldSubmit) {
+      showError("");
+      const titleEl = document.getElementById("create-title");
+      const descEl = document.getElementById("create-description");
+      const areaEl = document.getElementById("create-area");
+      const prioEl = document.getElementById("create-priority");
+      const modeEl = document.getElementById("create-sim-mode");
+
+      const title = titleEl.value.trim();
+      if (!title) {
+        showError("Task title is required.");
+        return;
+      }
+
+      const res = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          description: descEl.value.trim(),
+          area: areaEl.value,
+          priority: prioEl.value,
+          simMode: modeEl.value,
+          submit: Boolean(shouldSubmit),
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showError(data.error || `Failed to create task (${res.status})`);
+        return;
+      }
+
+      hideConflict();
+      titleEl.value = "";
+      descEl.value = "";
+      const createdId = data.task && data.task.id ? data.task.id : null;
+      await pollNow(createdId);
+    }
+
+    document.getElementById("create-task-form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      submitCreateForm(true);
+    });
+
+    document.getElementById("create-draft-btn").addEventListener("click", () => {
+      submitCreateForm(false);
+    });
+
+    document.getElementById("dismiss-conflict-btn").addEventListener("click", () => {
+      hideConflict();
+    });
+
+    // Live age & routing elapsed ticker between 2s polls
+    setInterval(() => {
+      if (state.tasks.length > 0) {
+        renderTaskList();
+        if (state.detail && state.detail.task && state.detail.task.state === "ROUTING") {
+          const activeInputs = document.activeElement && document.activeElement.tagName === "SELECT";
+          if (!activeInputs) {
+            renderDetailPanel();
+          }
+        }
+      }
+    }, 500);
+
+    pollNow();
+    setInterval(() => {
+      pollNow();
+    }, POLL_INTERVAL_MS);
   </script>
 </body>
 </html>
